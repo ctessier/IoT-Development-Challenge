@@ -1,25 +1,32 @@
-var loki = require('lokijs');
-var db = new loki('db.json');
-var message = db.addCollection('message', {
-    'indices': ['time']
+var Loki = require('lokijs');
+var db = new Loki('sensors', {
+    autoload: true,
+    autoloadCallback: loadHandler,
+    autosave: true, 
+    autosaveInterval: 2000
 });
 
-exports.load = function () {
-    db.loadDatabase();
+var sensors = null;
+
+function loadHandler() {
+    sensors = db.getCollection('sensors');
+    if (sensors === null) {
+        sensors = db.addCollection('sensors', {
+            'indices': ['time']
+        });
+    }
 }
 
 exports.postMessage = function (payload) {
     payload.time = new Date(payload.timestamp).getTime();
-    message.insert(payload);
+    sensors.insert(payload);
 };
 
 exports.getSynthesis = function (timestamp, duration) {
-    db.saveDatabase();
-
     timestamp = timestamp.replace(" ", "+");
     timestamp = new Date(timestamp);
     timestamp = timestamp.getTime();
-    var messages = message
+    var messages = sensors
         .chain()
         .find({'time': {'$gt': timestamp, '$lt': timestamp+(duration*1000)}})
         .simplesort('sensorType')
@@ -31,7 +38,7 @@ exports.getSynthesis = function (timestamp, duration) {
         sensorType: null,
         minValue: 0,
         maxValue: 0,
-        mediumValue: 0
+        mediumValue: 0.00
     };
 
     messages.forEach(function (obj) {
@@ -56,11 +63,11 @@ exports.getSynthesis = function (timestamp, duration) {
         }
     });
 
-    // flush last sensortype
+    // add last sensortype
     if (currentSynthesis.sensorType !== null) {
         synthesis.push(currentSynthesis);
     }
-
+    
     return synthesis;
 }
 
@@ -69,9 +76,6 @@ function calculateAverage(values) {
     values.forEach(function (value) {
         sum += value;
     });
-    if (sum/values.length < 0) {
-        return Math.ceil(sum/values.length);
-    } else {
-        return Math.floor(sum/values.length);
-    }
+    
+    return parseFloat((Math.round(sum/values.length * 100) / 100).toFixed(2));
 }
