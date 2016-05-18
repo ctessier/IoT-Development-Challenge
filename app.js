@@ -1,6 +1,6 @@
 var Hapi = require('hapi');
 var Services = require('./services');
-var port = 80;
+var port = 8080;
 
 var server = new Hapi.Server(); // tester avec Hapi.createServer('0.0.0.0', 80 ... )
 server.connection({port: port});
@@ -26,6 +26,5 @@ server.start(function (err) {
     if (err) {
         throw err;
     }
-    Services.load();
     console.log('Server running on port ' + port);
 });
